@@ -32,6 +32,7 @@ jobs:
               git remote set-url origin https://${{ secrets.GH_TOKEN }}@github.com/institutolumieresistemas-oss/calificador-Lumiere-Social.git
             fi
             git fetch origin main
+            git checkout -B main origin/main
             git reset --hard origin/main
             mkdir -p uploads
             chmod 777 uploads
