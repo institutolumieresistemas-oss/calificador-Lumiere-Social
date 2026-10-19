@@ -30,16 +30,12 @@ define('TELEGRAM_FILE_URL', 'https://api.telegram.org/file/bot' . TELEGRAM_BOT_T
 define('ADMIN_PASSWORD', 'lumiere2026');
 
 // 5. Archivos locales y directorios compartidos entre subdominios
-// (calificador.lumieresiga.com y resultados.lumieresiga.com)
+// (calificador y resultados)
 $sharedDir = __DIR__;
-if (!file_exists($sharedDir . '/claves.json')) {
-    if (file_exists(__DIR__ . '/../calificador/claves.json')) {
-        $sharedDir = __DIR__ . '/../calificador';
-    } elseif (file_exists(__DIR__ . '/../public_html/claves.json')) {
-        $sharedDir = __DIR__ . '/../public_html';
-    } elseif (file_exists(__DIR__ . '/../resultados/claves.json')) {
-        $sharedDir = __DIR__ . '/../resultados';
-    }
+if (file_exists(__DIR__ . '/../calificador/claves.json') || file_exists(__DIR__ . '/../calificador/alumnos.json')) {
+    $sharedDir = realpath(__DIR__ . '/../calificador') ?: (__DIR__ . '/../calificador');
+} elseif (!file_exists($sharedDir . '/claves.json') && file_exists(__DIR__ . '/../public_html/claves.json')) {
+    $sharedDir = realpath(__DIR__ . '/../public_html') ?: (__DIR__ . '/../public_html');
 }
 
 define('SHARED_STORAGE_DIR', $sharedDir);
