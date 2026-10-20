@@ -21,19 +21,12 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 65002
-          script_stop: true
+          script_stop: false
           script: |
             echo "🚀 Desplegando Calificador Lumiere en Hostinger..."
             cd ${{ secrets.SSH_TARGET }}
-            if [ ! -d ".git" ]; then
-              git init
-              git remote add origin https://${{ secrets.GH_TOKEN }}@github.com/institutolumieresistemas-oss/calificador-Lumiere-Social.git
-            else
-              git remote set-url origin https://${{ secrets.GH_TOKEN }}@github.com/institutolumieresistemas-oss/calificador-Lumiere-Social.git
-            fi
-            git fetch origin main
-            git checkout -B main origin/main
-            git reset --hard origin/main
+            git remote set-url origin https://${{ secrets.GH_TOKEN }}@github.com/institutolumieresistemas-oss/calificador-Lumiere-Social.git
+            git pull origin main
             mkdir -p uploads
             chmod 777 uploads
-            echo "✅ Deploy completado exitosamente en ${{ secrets.SSH_TARGET }}"
+            echo "✅ Deploy Calificador completado exitosamente"
