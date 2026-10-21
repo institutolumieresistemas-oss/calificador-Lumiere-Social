@@ -138,7 +138,6 @@ $total = $countLec + $countRed + $countMat + $countIng;
         </div>
         <div>
             <a href="index.php" class="btn-secondary">🏠 Inicio</a>
-            <a href="https://t.me/<?php echo htmlspecialchars(TELEGRAM_BOT_USERNAME); ?>" target="_blank" class="btn-secondary">📱 Bot Telegram</a>
         </div>
     </div>
 
@@ -155,9 +154,7 @@ $total = $countLec + $countRed + $countMat + $countIng;
             <span class="stat-badge">🇬🇧 Inglés: <b><?php echo $countIng; ?></b> reactivos</span>
             <span class="stat-badge" style="border-color: #3b82f6;">🏆 Total Claves: <b><?php echo $total; ?></b></span>
         </div>
-        <p style="color: var(--muted); font-size: 13px; margin: 12px 0 0 0;">
-            💡 <i>Recuerda: También puedes actualizar esta hoja base en Telegram enviando <code>A-EXAMEN</code> y la foto de la hoja.</i>
-        </p>
+
     </div>
 
     <!-- Formulario de Edición -->
