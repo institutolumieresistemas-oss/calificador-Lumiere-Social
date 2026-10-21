@@ -513,7 +513,7 @@ if (strpos($hostActual, 'resultados.') !== false) {
         <div class="section-nav">
             <button class="sec-tab active" onclick="cambiarSeccionRevision('lectura')">Lectura (45)</button>
             <button class="sec-tab" onclick="cambiarSeccionRevision('redaccion')">Redacción (25)</button>
-            <button class="sec-tab" onclick="cambiarSeccionRevision('matematicas')">Matemáticas (45)</button>
+            <button class="sec-tab" onclick="cambiarSeccionRevision('matematicas')">Matemáticas (55)</button>
         </div>
 
         <!-- Contenedores de preguntas por sección -->
@@ -730,7 +730,7 @@ function construirGridsRevision() {
     const specs = {
         lectura: { total: 45, cont: document.getElementById('grid-lectura') },
         redaccion: { total: 25, cont: document.getElementById('grid-redaccion') },
-        matematicas: { total: 45, cont: document.getElementById('grid-matematicas') }
+        matematicas: { total: 55, cont: document.getElementById('grid-matematicas') }
     };
 
     ['lectura', 'redaccion', 'matematicas'].forEach(sec => {
@@ -749,24 +749,59 @@ function construirGridsRevision() {
             card.className = 'q-card' + (esModificada ? ' modified' : '');
             card.id = `q-${sec}-${num}`;
 
-            card.innerHTML = `
-                <div class="q-header">
-                    <span>#${num}</span>
-                    ${esModificada ? '<span class="q-tag">Modificada</span>' : ''}
-                </div>
-                <div class="bubble-options">
-                    ${['A', 'B', 'C', 'D'].map(opt => `
-                        <button type="button" class="bubble-btn ${val === opt ? 'active' : ''}" 
-                            onclick="seleccionarOpcion('${sec}', '${num}', '${opt}')">${opt}</button>
-                    `).join('')}
-                    <button type="button" class="bubble-btn empty-btn ${val === '' ? 'active' : ''}" 
-                        onclick="seleccionarOpcion('${sec}', '${num}', '')" title="Sin contestar">⚪</button>
-                </div>
-            `;
+            if (sec === 'matematicas' && i >= 46) {
+                card.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                card.innerHTML = `
+                    <div class="q-header">
+                        <span style="color:#f59e0b;">#${num} (Grid Numérico)</span>
+                        ${esModificada ? '<span class="q-tag">Modificada</span>' : ''}
+                    </div>
+                    <div style="padding: 4px 0;">
+                        <input type="text" value="${escapeHtml(val)}" 
+                            placeholder="ej. 18, 3.5, 1/2" 
+                            style="width: 100%; padding: 8px 10px; font-size: 14px; text-transform: uppercase; font-weight: 700; text-align: center; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px;"
+                            onchange="modificarRespuestaGrid('${sec}', '${num}', this.value)">
+                    </div>
+                `;
+            } else {
+                card.innerHTML = `
+                    <div class="q-header">
+                        <span>#${num}</span>
+                        ${esModificada ? '<span class="q-tag">Modificada</span>' : ''}
+                    </div>
+                    <div class="bubble-options">
+                        ${['A', 'B', 'C', 'D'].map(opt => `
+                            <button type="button" class="bubble-btn ${val === opt ? 'active' : ''}" 
+                                onclick="seleccionarOpcion('${sec}', '${num}', '${opt}')">${opt}</button>
+                        `).join('')}
+                        <button type="button" class="bubble-btn empty-btn ${val === '' ? 'active' : ''}" 
+                            onclick="seleccionarOpcion('${sec}', '${num}', '')" title="Sin contestar">⚪</button>
+                    </div>
+                `;
+            }
             cont.appendChild(card);
         }
     });
 
+    actualizarConteoModificaciones();
+}
+
+function modificarRespuestaGrid(sec, num, val) {
+    if (!respuestasDetectadas[sec]) respuestasDetectadas[sec] = {};
+    const clean = val.trim().toUpperCase();
+    if (clean === '') {
+        delete respuestasDetectadas[sec][num];
+    } else {
+        respuestasDetectadas[sec][num] = clean;
+    }
+    const valOrig = (respuestasOriginales[sec] && respuestasOriginales[sec][num]) || '';
+    const esModificada = clean !== valOrig;
+    const card = document.getElementById(`q-${sec}-${num}`);
+    if (card) {
+        card.className = 'q-card' + (esModificada ? ' modified' : '');
+        const tagSpan = card.querySelector('.q-header');
+        tagSpan.innerHTML = `<span style="color:#f59e0b;">#${num} (Grid Numérico)</span>${esModificada ? '<span class="q-tag">Modificada</span>' : ''}`;
+    }
     actualizarConteoModificaciones();
 }
 
