@@ -436,6 +436,50 @@ if (strpos($hostActual, 'resultados.') !== false) {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5) !important;
         }
+
+        /* Botón y contenedor de Dictado por Voz */
+        .btn-dictado {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+            color: #ffffff !important;
+            border: none !important;
+            padding: 12px 18px !important;
+            border-radius: 12px !important;
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex: 1;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+            transition: all 0.2s ease;
+        }
+        .btn-dictado:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(2, 132, 199, 0.45);
+        }
+        .btn-dictado.activo {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
+            animation: pulse-red 1.5s infinite;
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .pulse-dot {
+            width: 10px;
+            height: 10px;
+            background: #ef4444;
+            border-radius: 50%;
+            display: inline-block;
+            animation: blink-dot 1s infinite alternate;
+        }
+        @keyframes blink-dot {
+            from { opacity: 0.3; transform: scale(0.85); }
+            to { opacity: 1; transform: scale(1.15); }
+        }
     </style>
 </head>
 <body>
@@ -482,6 +526,12 @@ if (strpos($hostActual, 'resultados.') !== false) {
         <div style="margin-top: 20px;">
             <button id="btn-analizar" class="btn" onclick="analizarHoja()" disabled>
                 <span>🔍 Analizar con Inteligencia Artificial</span>
+            </button>
+        </div>
+
+        <div style="margin-top: 12px; text-align: center;">
+            <button type="button" class="btn btn-outline" style="font-size: 13px; padding: 10px 16px; width: 100%; border: 1px dashed var(--border); color: #38bdf8;" onclick="iniciarRevisionManualVoz()">
+                🎙️ O dictar respuestas por voz directamente (sin foto)
             </button>
         </div>
     </div>
@@ -543,6 +593,36 @@ if (strpos($hostActual, 'resultados.') !== false) {
                 ✨ Nombre detectado de la hoja: <b id="lbl-nombre-detectado"></b>
             </div>
             <input type="text" id="revision-nombre" class="input-control" placeholder="Nombre del Alumno">
+        </div>
+
+        <!-- Barra de Dictado por Voz encima de las secciones -->
+        <div class="voice-dictation-container" style="margin-bottom: 16px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button id="btn-dictado-voz" type="button" class="btn-dictado" onclick="toggleDictadoVoz()">
+                    <span id="icono-mic">🎙️</span>
+                    <span id="texto-btn-voz">Dictar Respuestas por Voz</span>
+                </button>
+                <button id="btn-limpiar-sec" type="button" class="btn btn-outline" style="width: auto; padding: 12px 14px; font-size: 13px;" onclick="limpiarSeccionActiva()" title="Limpiar respuestas de esta sección">
+                    🧹 Limpiar Sección
+                </button>
+            </div>
+            
+            <div id="panel-voz-estado" style="display: none; margin-top: 10px; padding: 12px 16px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 12px; text-align: center;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px;">
+                    <span class="pulse-dot"></span>
+                    <b style="color: #38bdf8; font-size: 15px;">Dicta tus resultados</b>
+                </div>
+                <p style="margin: 0; font-size: 12px; color: var(--muted);">
+                    Habla continuo o pausado: <i>"A, B, D, C, C, D, B..."</i> — Las burbujas se rellenarán en vivo conforme hables.
+                </p>
+                <div id="transcripcion-en-vivo" style="margin-top: 8px; font-size: 15px; color: #fff; font-weight: 800; min-height: 22px; font-family: monospace; letter-spacing: 2px;">
+                    Escuchando micrófono...
+                </div>
+                <div style="margin-top: 6px; font-size: 12px; color: #94a3b8;">
+                    Sección: <b id="voz-seccion-nombre" style="color: #fff; text-transform: capitalize;">Lectura</b> | 
+                    Reactivo actual: <b id="voz-reactivo-actual" style="color: #38bdf8;">1</b> de <span id="voz-reactivo-total">45</span>
+                </div>
+            </div>
         </div>
 
         <div class="section-nav">
@@ -915,13 +995,237 @@ function modificarRespuestaGrid(sec, num, val) {
     actualizarConteoModificaciones();
 }
 
+// ====================================================================
+// MOTOR DE DICTADO POR VOZ EN TIEMPO REAL (Web Speech API)
+// ====================================================================
+let seccionActiva = 'lectura';
+let reconocimientoVoz = null;
+let dictandoActivo = false;
+
 function cambiarSeccionRevision(sec) {
+    seccionActiva = sec;
     document.querySelectorAll('.sec-tab').forEach(t => t.classList.remove('active'));
-    event.target.classList.add('active');
+    
+    // Marcar pestaña activa
+    const btnTab = document.querySelector(`.sec-tab[onclick*="${sec}"]`);
+    if (btnTab) {
+        btnTab.classList.add('active');
+    } else if (typeof event !== 'undefined' && event && event.target && event.target.classList) {
+        event.target.classList.add('active');
+    }
 
     document.getElementById('grid-lectura').style.display = sec === 'lectura' ? 'grid' : 'none';
     document.getElementById('grid-redaccion').style.display = sec === 'redaccion' ? 'grid' : 'none';
     document.getElementById('grid-matematicas').style.display = sec === 'matematicas' ? 'grid' : 'none';
+
+    // Actualizar indicador de sección en el panel de voz
+    const specs = { lectura: 45, redaccion: 25, matematicas: 55 };
+    const totalSec = specs[sec] || 45;
+    const elemSec = document.getElementById('voz-seccion-nombre');
+    const elemTot = document.getElementById('voz-reactivo-total');
+    if (elemSec) elemSec.textContent = sec;
+    if (elemTot) elemTot.textContent = totalSec;
+
+    // Resetear contador visual de reactivo dictado para la nueva sección
+    const elemAct = document.getElementById('voz-reactivo-actual');
+    if (elemAct) elemAct.textContent = '1';
+}
+
+function toggleDictadoVoz() {
+    if (dictandoActivo) {
+        detenerDictadoVoz();
+    } else {
+        iniciarDictadoVoz();
+    }
+}
+
+function iniciarDictadoVoz() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        alert('Tu navegador no soporta reconocimiento de voz nativo.\n\nTe recomendamos abrir este portal en Google Chrome en Android/PC o Safari en iPhone/iPad.');
+        return;
+    }
+
+    try {
+        if (reconocimientoVoz) {
+            reconocimientoVoz.abort();
+        }
+
+        reconocimientoVoz = new SpeechRecognition();
+        reconocimientoVoz.lang = 'es-MX';
+        reconocimientoVoz.continuous = true;
+        reconocimientoVoz.interimResults = true;
+        reconocimientoVoz.maxAlternatives = 1;
+
+        dictandoActivo = true;
+
+        // UI Feedback
+        const btnVoz = document.getElementById('btn-dictado-voz');
+        const iconMic = document.getElementById('icono-mic');
+        const txtVoz = document.getElementById('texto-btn-voz');
+        const panelEstado = document.getElementById('panel-voz-estado');
+        const transVivo = document.getElementById('transcripcion-en-vivo');
+
+        if (btnVoz) btnVoz.classList.add('activo');
+        if (iconMic) iconMic.textContent = '⏹️';
+        if (txtVoz) txtVoz.textContent = 'Detener Dictado';
+        if (panelEstado) panelEstado.style.display = 'block';
+        if (transVivo) transVivo.textContent = '🎤 Escuchando micrófono... Di: "A B D C C D..."';
+
+        reconocimientoVoz.onresult = function(event) {
+            let textoCompleto = '';
+            for (let i = 0; i < event.results.length; ++i) {
+                textoCompleto += event.results[i][0].transcript + ' ';
+            }
+
+            const letras = parsearDictadoALetras(textoCompleto);
+            if (letras.length === 0) return;
+
+            // Rellenar en vivo cada casilla en la sección activa
+            const specs = { lectura: 45, redaccion: 25, matematicas: 55 };
+            const totalSec = specs[seccionActiva] || 45;
+
+            letras.forEach((letra, idx) => {
+                const num = idx + 1;
+                if (num <= totalSec) {
+                    if (seccionActiva === 'matematicas' && num >= 46) {
+                        modificarRespuestaGrid(seccionActiva, String(num), letra);
+                        const inp = document.querySelector(`#q-${seccionActiva}-${num} input`);
+                        if (inp) inp.value = letra;
+                    } else {
+                        seleccionarOpcion(seccionActiva, String(num), letra);
+                    }
+                }
+            });
+
+            // Actualizar transcripción y reactivo actual
+            const ultimasLetras = letras.slice(-10).join(' ');
+            if (transVivo) {
+                transVivo.textContent = ultimasLetras || 'Escuchando...';
+            }
+
+            const reactivoSiguiente = Math.min(letras.length + 1, totalSec);
+            const elemAct = document.getElementById('voz-reactivo-actual');
+            if (elemAct) elemAct.textContent = reactivoSiguiente;
+
+            // Auto-scroll a la casilla actual para verla rellenarse en vivo
+            const cardAct = document.getElementById(`q-${seccionActiva}-${letras.length || 1}`);
+            if (cardAct) {
+                cardAct.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        };
+
+        reconocimientoVoz.onerror = function(event) {
+            console.warn('Reconocimiento de voz:', event.error);
+            if (event.error === 'not-allowed') {
+                alert('Permiso de micrófono denegado. Permite el acceso al micrófono en el navegador para dictar tus respuestas.');
+                detenerDictadoVoz();
+            }
+        };
+
+        reconocimientoVoz.onend = function() {
+            // Reconectar si sigue activo (algunos navegadores detienen tras silencio)
+            if (dictandoActivo) {
+                try { reconocimientoVoz.start(); } catch(e) {}
+            }
+        };
+
+        reconocimientoVoz.start();
+
+    } catch(err) {
+        console.error('Error al iniciar reconocimiento:', err);
+        detenerDictadoVoz();
+    }
+}
+
+function detenerDictadoVoz() {
+    dictandoActivo = false;
+    if (reconocimientoVoz) {
+        try { reconocimientoVoz.stop(); } catch(e) {}
+        reconocimientoVoz = null;
+    }
+
+    const btnVoz = document.getElementById('btn-dictado-voz');
+    const iconMic = document.getElementById('icono-mic');
+    const txtVoz = document.getElementById('texto-btn-voz');
+    const panelEstado = document.getElementById('panel-voz-estado');
+
+    if (btnVoz) btnVoz.classList.remove('activo');
+    if (iconMic) iconMic.textContent = '🎙️';
+    if (txtVoz) txtVoz.textContent = 'Dictar Respuestas por Voz';
+    if (panelEstado) panelEstado.style.display = 'none';
+}
+
+function parsearDictadoALetras(texto) {
+    if (!texto) return [];
+    const t = texto.toLowerCase().replace(/[.,;:!?]/g, ' ').trim();
+    const palabras = t.split(/\s+/);
+    const letras = [];
+
+    for (let p of palabras) {
+        if (!p) continue;
+        if (p === 'a' || p === 'ah' || p === 'ha') {
+            letras.push('A');
+        } else if (p === 'b' || p === 'be' || p === 've' || p === 'bé' || p === 'vé' || p === 'bueno') {
+            letras.push('B');
+        } else if (p === 'c' || p === 'ce' || p === 'se' || p === 'sé' || p === 'cé' || p === 'casa') {
+            letras.push('C');
+        } else if (p === 'd' || p === 'de' || p === 'dé' || p === 'dedo' || p === 'dado') {
+            letras.push('D');
+        } else if (p === 'blanco' || p === 'paso' || p === 'omitida' || p === 'vacio' || p === 'vacío') {
+            letras.push('');
+        } else if (/^[0-9\/\.]+$/.test(p)) {
+            letras.push(p);
+        } else {
+            for (let ch of p) {
+                if (ch === 'a') letras.push('A');
+                else if (ch === 'b' || ch === 'v') letras.push('B');
+                else if (ch === 'c' || ch === 's') letras.push('C');
+                else if (ch === 'd') letras.push('D');
+            }
+        }
+    }
+    return letras;
+}
+
+function limpiarSeccionActiva() {
+    if (!confirm(`¿Deseas borrar todas las respuestas marcadas en "${seccionActiva.toUpperCase()}"?`)) {
+        return;
+    }
+    const specs = { lectura: 45, redaccion: 25, matematicas: 55 };
+    const total = specs[seccionActiva] || 45;
+    for (let i = 1; i <= total; i++) {
+        seleccionarOpcion(seccionActiva, String(i), '');
+    }
+    const elemAct = document.getElementById('voz-reactivo-actual');
+    if (elemAct) elemAct.textContent = '1';
+    const trans = document.getElementById('transcripcion-en-vivo');
+    if (trans) trans.textContent = 'Respuestas limpiadas. Listo para dictar.';
+}
+
+function iniciarRevisionManualVoz() {
+    archivoSeleccionado = null;
+    respuestasDetectadas = { lectura: {}, redaccion: {}, matematicas: {} };
+    respuestasOriginales = { lectura: {}, redaccion: {}, matematicas: {} };
+    tempIdActual = 'manual_' + Date.now();
+
+    const nombre = document.getElementById('input-nombre').value.trim();
+    document.getElementById('revision-nombre').value = nombre;
+
+    construirGridsRevision();
+
+    document.getElementById('pantalla-subida').style.display = 'none';
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('pantalla-resultados').style.display = 'none';
+    document.getElementById('pantalla-bloqueo').style.display = 'none';
+    document.getElementById('pantalla-revision').style.display = 'block';
+
+    cambiarSeccionRevision('lectura');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    setTimeout(() => {
+        iniciarDictadoVoz();
+    }, 400);
 }
 
 function seleccionarOpcion(sec, num, opt) {
@@ -1029,6 +1333,7 @@ function siguienteExamen(abrirCamara = true) {
     respuestasOriginales = null;
     tempIdActual = null;
     alumnoVerificado = null;
+    detenerDictadoVoz();
 
     // Limpiar campos
     document.getElementById('input-nombre').value = '';
