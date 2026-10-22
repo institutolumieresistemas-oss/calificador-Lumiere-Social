@@ -368,9 +368,9 @@ function gemini_preparar_recortes_completos($imageBytes) {
         ]),
         'datos_alumno' => $helperCrop([
             'x' => 0,
-            'y' => (int)($h * 0.10),
-            'width' => (int)($w * 0.35),
-            'height' => (int)($h * 0.25)
+            'y' => 0,
+            'width' => (int)($w * 0.70),
+            'height' => (int)($h * 0.20)
         ])
     ];
 
@@ -786,15 +786,17 @@ function gemini_extraer_datos_alumno($imageBytes) {
     $bytesNombre = ($recortes && !empty($recortes['datos_alumno'])) ? $recortes['datos_alumno'] : $imageBytes;
 
     $prompt = <<<EOT
-En esta sección de la hoja de examen (debajo del logotipo Lumière):
-1. Identifica el campo "Nombre:" o "Nombre del Alumno:" y extrae el texto escrito a mano o impreso.
-2. Si está vacío o no hay texto escrito, devuelve cadena vacía "".
-3. Si existe el campo "Carrera:", extráelo también.
+Eres un extractor de datos de examen de alta precisión para el Instituto Lumière.
+Examina el encabezado superior de la hoja de respuestas:
+1. Localiza el campo "Nombre:", "Nombre del Alumno:" o la línea manuscrita donde el estudiante escribió su nombre.
+2. Extrae con exactitud el nombre y apellidos completos (ej: "JUAN PÉREZ LÓPEZ"). Conviértelo a MAYÚSCULAS limpias.
+3. Si está vacío o no hay texto manuscrito legible, devuelve cadena vacía "".
+4. Si existe el campo "Carrera:" o "Grupo:", extráelo también.
 
 Devuelve ÚNICAMENTE un objeto JSON:
 {
-  "nombre": "Nombre detectado",
-  "carrera": "Carrera detectada"
+  "nombre": "NOMBRE COMPLETO EN MAYÚSCULAS",
+  "carrera": "CARRERA O GRUPO"
 }
 EOT;
 

@@ -414,6 +414,28 @@ if (strpos($hostActual, 'resultados.') !== false) {
             font-weight: 600;
         }
         .footer a:hover { text-decoration: underline; }
+
+        .btn-siguiente {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            color: #ffffff !important;
+            font-size: 16px !important;
+            font-weight: 700 !important;
+            padding: 14px 20px !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .btn-siguiente:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5) !important;
+        }
     </style>
 </head>
 <body>
@@ -432,8 +454,8 @@ if (strpos($hostActual, 'resultados.') !== false) {
     <!-- PANTALLA 1: SUBIR EXAMEN -->
     <div id="pantalla-subida" class="card">
         <div class="input-group">
-            <label for="input-nombre">Nombre Completo del Alumno:</label>
-            <input type="text" id="input-nombre" class="input-control" placeholder="Ej: JUAN PÉREZ LÓPEZ" autocomplete="name">
+            <label for="input-nombre">Nombre del Alumno <span style="font-size: 12px; color: var(--muted); font-weight: normal;">(Opcional: la IA lo leerá automáticamente de la hoja)</span>:</label>
+            <input type="text" id="input-nombre" class="input-control" placeholder="La IA intentará leerlo de la hoja (o escríbelo aquí)" autocomplete="name">
         </div>
 
         <div class="upload-area" id="drop-zone" onclick="document.getElementById('input-foto').click()">
@@ -506,7 +528,10 @@ if (strpos($hostActual, 'resultados.') !== false) {
         </div>
 
         <div class="input-group">
-            <label for="revision-nombre">Nombre del Alumno (Verifica que sea correcto):</label>
+            <label for="revision-nombre">Nombre del Alumno (Verifica o edita):</label>
+            <div id="badge-nombre-detectado" style="display: none; margin-bottom: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; font-size: 13px; color: #34d399;">
+                ✨ Nombre detectado de la hoja: <b id="lbl-nombre-detectado"></b>
+            </div>
             <input type="text" id="revision-nombre" class="input-control" placeholder="Nombre del Alumno">
         </div>
 
@@ -525,13 +550,25 @@ if (strpos($hostActual, 'resultados.') !== false) {
             ✏️ Has rectificado <span id="conteo-modificaciones">0</span> respuestas.
         </div>
 
-        <button class="btn" onclick="confirmarEntregaDefinitiva()">
-            <span>🚀 Confirmar y Sellar Mi Examen</span>
-        </button>
+        <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+            <button class="btn" onclick="confirmarEntregaDefinitiva()">
+                <span>🚀 Confirmar y Guardar Calificación</span>
+            </button>
+            <button type="button" class="btn btn-outline" onclick="siguienteExamen(false)">
+                ✕ Descartar y Calificar Otro Examen
+            </button>
+        </div>
     </div>
 
     <!-- PANTALLA 3: RESULTADOS OFICIALES -->
     <div id="pantalla-resultados" class="card" style="display: none;">
+        <!-- Botón superior para pasar directo al siguiente examen -->
+        <div style="margin-bottom: 20px;">
+            <button class="btn-siguiente" onclick="siguienteExamen(true)">
+                <span>📸 Calificar Siguiente Examen</span>
+            </button>
+        </div>
+
         <div class="score-hero">
             <div class="score-hero-title">Puntaje Global Estimado</div>
             <div class="score-hero-number" id="res-paa-total">---</div>
@@ -557,12 +594,15 @@ if (strpos($hostActual, 'resultados.') !== false) {
 
         <div id="detalles-secciones"></div>
 
-        <div style="margin-top: 20px;">
+        <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+            <button class="btn-siguiente" onclick="siguienteExamen(true)">
+                <span>📸 Calificar Siguiente Examen</span>
+            </button>
             <button class="btn btn-secondary" onclick="window.print()">🖨️ Imprimir / Guardar Resultados</button>
         </div>
 
-        <p style="font-size: 12px; color: #94a3b8; text-align: center; margin-top: 14px;">
-            🔒 Tu calificación ha quedado guardada oficialmente. No se permiten nuevas cargas.
+        <p style="font-size: 13px; color: #10b981; text-align: center; margin-top: 14px; font-weight: 600;">
+            ✅ Calificación guardada exitosamente en el sistema.
         </p>
     </div>
 
@@ -711,9 +751,23 @@ function analizarHoja() {
         respuestasOriginales = JSON.parse(JSON.stringify(data.respuestas_detectadas));
         tempIdActual = data.temp_id;
 
-        // Nombre sugerido
-        const nombreFinal = nombre || data.nombre_detectado || '';
+        // Nombre detectado automáticamente por la IA o sugerido
+        const nombreDetectado = (data.nombre_detectado || '').trim();
+        const nombreFinal = nombreDetectado || nombre || '';
+
         document.getElementById('revision-nombre').value = nombreFinal;
+        document.getElementById('input-nombre').value = nombreFinal;
+
+        const badge = document.getElementById('badge-nombre-detectado');
+        const lblBadge = document.getElementById('lbl-nombre-detectado');
+        if (badge && lblBadge) {
+            if (nombreDetectado) {
+                lblBadge.textContent = nombreDetectado;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
 
         construirGridsRevision();
         document.getElementById('pantalla-revision').style.display = 'block';
@@ -870,11 +924,11 @@ function actualizarConteoModificaciones() {
 function confirmarEntregaDefinitiva() {
     const nombre = document.getElementById('revision-nombre').value.trim();
     if (!nombre) {
-        alert('Por favor escribe tu nombre completo antes de confirmar.');
+        alert('Por favor escribe o verifica el nombre del alumno antes de confirmar.');
         return;
     }
 
-    if (!confirm(`¿Confirmas la entrega definitiva de tu examen a nombre de "${nombre}"?\n\nRecuerda: Esta acción sellará tu examen y se registrará tu puntaje oficial.`)) {
+    if (!confirm(`¿Confirmas la calificación del examen para "${nombre}"?`)) {
         return;
     }
 
@@ -910,6 +964,44 @@ function confirmarEntregaDefinitiva() {
         alert('Error al confirmar el examen.');
         document.getElementById('pantalla-revision').style.display = 'block';
     });
+}
+
+// Función para reiniciar y calificar el siguiente examen de forma inmediata
+function siguienteExamen(abrirCamara = true) {
+    archivoSeleccionado = null;
+    respuestasDetectadas = null;
+    respuestasOriginales = null;
+    tempIdActual = null;
+    alumnoVerificado = null;
+
+    // Limpiar campos
+    document.getElementById('input-nombre').value = '';
+    document.getElementById('revision-nombre').value = '';
+    document.getElementById('input-foto').value = '';
+    document.getElementById('img-preview').src = '';
+    document.getElementById('vista-previa-foto').style.display = 'none';
+    document.getElementById('drop-zone').style.display = 'block';
+    document.getElementById('btn-analizar').disabled = true;
+
+    const badge = document.getElementById('badge-nombre-detectado');
+    if (badge) badge.style.display = 'none';
+
+    // Regresar a la pantalla de subida
+    document.getElementById('pantalla-resultados').style.display = 'none';
+    document.getElementById('pantalla-revision').style.display = 'none';
+    document.getElementById('pantalla-carga').style.display = 'none';
+    document.getElementById('pantalla-bloqueo').style.display = 'none';
+    document.getElementById('pantalla-subida').style.display = 'block';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Activar selector / cámara automáticamente para agilizar el flujo de los profesores
+    if (abrirCamara) {
+        setTimeout(() => {
+            const inputFoto = document.getElementById('input-foto');
+            if (inputFoto) inputFoto.click();
+        }, 300);
+    }
 }
 
 function mostrarResultadosOficiales(ev) {
