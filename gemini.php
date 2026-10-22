@@ -162,11 +162,7 @@ function gemini_ejecutar_peticion($payload, $timeout = 30) {
     $models = array_unique([
         'gemini-3.5-flash-lite',
         'gemini-3-flash-preview',
-        'gemini-3.5-flash',
-        GEMINI_PRIMARY_MODEL,
-        GEMINI_FALLBACK_MODEL,
-        'gemini-flash-latest',
-        'gemini-3.8-flash'
+        'gemini-3.5-flash'
     ]);
 
     // Ordenar las claves con rotación Round-Robin para balancear la carga equitativamente
@@ -185,7 +181,9 @@ function gemini_ejecutar_peticion($payload, $timeout = 30) {
     foreach ($orderedKeys as $apiKey) {
         $keySuffix = substr($apiKey, -6);
 
-        foreach ($models as $model) {
+        // Probar solo el modelo principal y el secundario por clave para evitar retrasos
+        $modelosProbar = array_slice($models, 0, 2);
+        foreach ($modelosProbar as $model) {
             $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . $apiKey;
 
             $ch = curl_init();
@@ -195,7 +193,7 @@ function gemini_ejecutar_peticion($payload, $timeout = 30) {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_TIMEOUT, min((int)$timeout, 8));
 
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -262,7 +260,7 @@ function gemini_ejecutar_peticion($payload, $timeout = 30) {
  * @param int $timeout Tiempo límite por petición
  * @return array Matriz ['id' => ['exito' => bool, 'data' => array|null, 'error' => string], ...]
  */
-function gemini_ejecutar_peticiones_paralelas($tasks, $timeout = 25) {
+function gemini_ejecutar_peticiones_paralelas($tasks, $timeout = 10) {
     if (empty($tasks)) return [];
 
     $keys = defined('GEMINI_API_KEYS') && is_array(GEMINI_API_KEYS) && count(GEMINI_API_KEYS) > 0 
@@ -277,15 +275,7 @@ function gemini_ejecutar_peticiones_paralelas($tasks, $timeout = 25) {
         return [];
     }
 
-    $models = array_unique([
-        'gemini-3.5-flash-lite',
-        GEMINI_PRIMARY_MODEL,
-        'gemini-3-flash-preview',
-        'gemini-3.5-flash',
-        GEMINI_FALLBACK_MODEL,
-        'gemini-flash-latest'
-    ]);
-    $model = $models[0];
+    $model = 'gemini-3.5-flash-lite';
 
     $mh = curl_multi_init();
     $handles = [];
@@ -373,10 +363,10 @@ function gemini_ejecutar_peticiones_paralelas($tasks, $timeout = 25) {
     }
     curl_multi_close($mh);
 
-    // Reintentar secuencialmente cualquier sección que haya fallado o recibido 429
+    // Reintentar secuencialmente con timeout corto cualquier sección que haya fallado o recibido 429
     if (!empty($retriesNeeded)) {
         bot_log("Reintentando " . count($retriesNeeded) . " tareas con failover de claves...");
-        $retryTimeout = min((int)$timeout, 12);
+        $retryTimeout = 6;
         foreach ($retriesNeeded as $id => $payload) {
             $res = gemini_ejecutar_peticion($payload, $retryTimeout);
             if ($res['exito'] && is_array($res['data'])) {
@@ -471,49 +461,49 @@ function gemini_preparar_recortes_completos($imageBytes) {
         return $bytes;
     };
 
-    // Coordenadas proporcionales óptimas para la hoja oficial Lumière
+    // Coordenadas proporcionales optimizadas con márgenes de seguridad para encuadres de celular
     $crops = [
         'lectura' => $helperCrop([
-            'x' => (int)($w * 0.26),
-            'y' => (int)($h * 0.12),
-            'width' => (int)($w * 0.70),
-            'height' => (int)($h * 0.16)
+            'x' => (int)($w * 0.22),
+            'y' => (int)($h * 0.10),
+            'width' => (int)($w * 0.76),
+            'height' => (int)($h * 0.18)
         ]),
         'redaccion' => $helperCrop([
-            'x' => (int)($w * 0.26),
-            'y' => (int)($h * 0.24),
-            'width' => (int)($w * 0.70),
-            'height' => (int)($h * 0.12)
+            'x' => (int)($w * 0.22),
+            'y' => (int)($h * 0.22),
+            'width' => (int)($w * 0.76),
+            'height' => (int)($h * 0.14)
         ]),
         'matematicas_mc' => $helperCrop([
-            'x' => (int)($w * 0.27),
-            'y' => (int)($h * 0.32),
-            'width' => (int)($w * 0.44),
-            'height' => (int)($h * 0.21)
+            'x' => (int)($w * 0.22),
+            'y' => (int)($h * 0.30),
+            'width' => (int)($w * 0.50),
+            'height' => (int)($h * 0.23)
         ]),
         'matematicas_46_47' => $helperCrop([
-            'x' => (int)($w * 0.66),
-            'y' => (int)($h * 0.32),
-            'width' => (int)($w * 0.30),
-            'height' => (int)($h * 0.21)
+            'x' => (int)($w * 0.64),
+            'y' => (int)($h * 0.30),
+            'width' => (int)($w * 0.34),
+            'height' => (int)($h * 0.23)
         ]),
         'matematicas_48_51' => $helperCrop([
-            'x' => (int)($w * 0.02),
-            'y' => (int)($h * 0.49),
-            'width' => (int)($w * 0.49),
-            'height' => (int)($h * 0.20)
+            'x' => 0,
+            'y' => (int)($h * 0.47),
+            'width' => (int)($w * 0.52),
+            'height' => (int)($h * 0.23)
         ]),
         'matematicas_52_55' => $helperCrop([
-            'x' => (int)($w * 0.49),
-            'y' => (int)($h * 0.49),
-            'width' => (int)($w * 0.49),
-            'height' => (int)($h * 0.20)
+            'x' => (int)($w * 0.47),
+            'y' => (int)($h * 0.47),
+            'width' => (int)($w * 0.52),
+            'height' => (int)($h * 0.23)
         ]),
         'datos_alumno' => $helperCrop([
             'x' => 0,
             'y' => 0,
-            'width' => (int)($w * 0.70),
-            'height' => (int)($h * 0.20)
+            'width' => (int)($w * 0.75),
+            'height' => (int)($h * 0.22)
         ])
     ];
 
@@ -793,15 +783,51 @@ function gemini_analizar_hoja_completa_paralela($imageBytes, $mimeType = 'image/
     $recortes = gemini_preparar_recortes_completos($imageBytes);
 
     if ($recortes === false) {
-        bot_log("Recortes fallaron, usando respaldo completo...");
-        $datosRespuestas = gemini_analyze_sheet_full($imageBytes, $mimeType);
-        $datosNombre = gemini_extraer_datos_alumno($imageBytes);
+        bot_log("Recortes no disponibles, analizando hoja completa en paralelo...");
+        $promptFull = <<<EOT
+Eres un calificador óptico OMR de máxima precisión para hojas de examen PAA.
+Examina la imagen completa de la hoja y devuelve ÚNICAMENTE un JSON con respuestas detectadas:
+{
+  "lectura": { "1": "A", "2": "B" },
+  "redaccion": { "1": "C", "2": "D" },
+  "matematicas": { "1": "A", "45": "B", "46": "15" }
+}
+EOT;
+        $promptNom = <<<EOT
+Extrae el nombre completo en MAYÚSCULAS y carrera del estudiante en el encabezado superior:
+{"nombre": "NOMBRE COMPLETO", "carrera": "CARRERA"}
+EOT;
+        $fbTasks = [
+            'respuestas' => [
+                'contents' => [['parts' => [
+                    ['text' => $promptFull],
+                    ['inline_data' => ['mime_type' => $mimeType, 'data' => base64_encode($imageBytes)]]
+                ]]],
+                'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.0]
+            ],
+            'nombre' => [
+                'contents' => [['parts' => [
+                    ['text' => $promptNom],
+                    ['inline_data' => ['mime_type' => $mimeType, 'data' => base64_encode($imageBytes)]]
+                ]]],
+                'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.0]
+            ]
+        ];
+        $fbRes = gemini_ejecutar_peticiones_paralelas($fbTasks, 10);
+        $dResp = $fbRes['respuestas']['data'] ?? [];
+        $dNom = $fbRes['nombre']['data'] ?? [];
+
         return [
-            'exito' => !isset($datosRespuestas['error']),
-            'nombre' => $datosNombre['nombre'] ?? '',
-            'carrera' => $datosNombre['carrera'] ?? '',
+            'exito' => !empty($dResp),
+            'nombre' => trim((string)($dNom['nombre'] ?? '')),
+            'carrera' => trim((string)($dNom['carrera'] ?? '')),
             'duracion' => round(microtime(true) - $t0, 2),
-            'respuestas' => $datosRespuestas
+            'respuestas' => [
+                'lectura' => $dResp['lectura'] ?? [],
+                'redaccion' => $dResp['redaccion'] ?? [],
+                'matematicas' => $dResp['matematicas'] ?? [],
+                'ingles' => []
+            ]
         ];
     }
 
@@ -832,7 +858,6 @@ EOT;
     ];
 
     // 2. Tarea Lectura (1 a 45)
-    $optLec = gemini_mejorar_imagen_omr($recortes['lectura']);
     $promptLec = <<<EOT
 Eres un lector óptico OMR de máxima precisión para hojas de respuestas de examen PAA.
 Esta imagen corresponde a "Parte 1 Lectura" (Preguntas 1 a 45).
@@ -858,13 +883,12 @@ EOT;
     $tasks['lectura'] = [
         'contents' => [['parts' => [
             ['text' => $promptLec],
-            ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($optLec)]]
+            ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($recortes['lectura'])]]
         ]]],
         'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.0]
     ];
 
     // 3. Tarea Redacción (1 a 25)
-    $optRed = gemini_mejorar_imagen_omr($recortes['redaccion']);
     $promptRed = <<<EOT
 Eres un lector óptico OMR de máxima precisión para hojas de respuestas de examen PAA.
 Esta imagen corresponde a "Parte 2 Redacción" (Preguntas 1 a 25).
@@ -890,13 +914,12 @@ EOT;
     $tasks['redaccion'] = [
         'contents' => [['parts' => [
             ['text' => $promptRed],
-            ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($optRed)]]
+            ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($recortes['redaccion'])]]
         ]]],
         'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.0]
     ];
 
     // 4. Tarea Matemáticas Opción Múltiple (1 a 45)
-    $optMat = gemini_mejorar_imagen_omr($recortes['matematicas_mc']);
     $promptMat = <<<EOT
 Eres un lector óptico OMR de máxima precisión para hojas de respuestas de examen PAA.
 Esta imagen corresponde a "Parte 3 Matemáticas - Opción Múltiple" (Preguntas 1 a 45).
@@ -922,7 +945,7 @@ EOT;
     $tasks['matematicas_mc'] = [
         'contents' => [['parts' => [
             ['text' => $promptMat],
-            ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($optMat)]]
+            ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($recortes['matematicas_mc'])]]
         ]]],
         'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.0]
     ];
@@ -943,40 +966,37 @@ INSTRUCCIONES CLAVE:
 EOT;
 
     if (!empty($recortes['matematicas_46_47'])) {
-        $opt46 = gemini_mejorar_imagen_omr($recortes['matematicas_46_47']);
         $tasks['grid_46_47'] = [
             'contents' => [['parts' => [
                 ['text' => $promptRules . "\nEn esta imagen están los ejercicios 46 y 47. Devuelve ÚNICAMENTE un JSON con formato: {\"46\": \"...\", \"47\": \"...\"}"],
-                ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($opt46)]]
+                ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($recortes['matematicas_46_47'])]]
             ]]],
             'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.0]
         ];
     }
 
     if (!empty($recortes['matematicas_48_51'])) {
-        $opt48 = gemini_mejorar_imagen_omr($recortes['matematicas_48_51']);
         $tasks['grid_48_51'] = [
             'contents' => [['parts' => [
                 ['text' => $promptRules . "\nEn esta imagen están los 4 ejercicios 48, 49, 50 y 51 de izquierda a derecha. Devuelve ÚNICAMENTE un JSON con claves '48', '49', '50', '51': {\"48\": \"...\", \"49\": \"...\", \"50\": \"...\", \"51\": \"...\"}"],
-                ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($opt48)]]
+                ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($recortes['matematicas_48_51'])]]
             ]]],
             'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.0]
         ];
     }
 
     if (!empty($recortes['matematicas_52_55'])) {
-        $opt52 = gemini_mejorar_imagen_omr($recortes['matematicas_52_55']);
         $tasks['grid_52_55'] = [
             'contents' => [['parts' => [
                 ['text' => $promptRules . "\nEn esta imagen están los 4 ejercicios 52, 53, 54 y 55 de izquierda a derecha. Devuelve ÚNICAMENTE un JSON con claves '52', '53', '54', '55': {\"52\": \"...\", \"53\": \"...\", \"54\": \"...\", \"55\": \"...\"}"],
-                ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($opt52)]]
+                ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($recortes['matematicas_52_55'])]]
             ]]],
             'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.0]
         ];
     }
 
-    // Ejecutar TODAS las peticiones en paralelo
-    $resultadosParalelos = gemini_ejecutar_peticiones_paralelas($tasks, 25);
+    // Ejecutar TODAS las peticiones en paralelo (timeout estricto de 10s)
+    $resultadosParalelos = gemini_ejecutar_peticiones_paralelas($tasks, 10);
 
     $nombreDetectado = '';
     $carreraDetectada = '';
@@ -1093,7 +1113,7 @@ EOT;
         ]
     ];
 
-    $res = gemini_ejecutar_peticion($payload, 35);
+    $res = gemini_ejecutar_peticion($payload, 10);
     if ($res['exito'] && is_array($res['data'])) {
         $data = $res['data'];
         $limpio = [

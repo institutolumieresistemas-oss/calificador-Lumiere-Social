@@ -854,7 +854,7 @@ async function optimizarFoto(file) {
             const url = URL.createObjectURL(file);
             img.onload = () => {
                 URL.revokeObjectURL(url);
-                const maxDim = 2000;
+                const maxDim = 1600;
                 let w = img.width;
                 let h = img.height;
 
