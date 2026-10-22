@@ -143,10 +143,19 @@ function gemini_procesar_hoja_con_alineacion($imageBytes, $mimeType = 'image/jpe
 }
 
 /**
- * 4. Función central para ejecutar peticiones a la API de Gemini con rotación automática de modelos
+ * 4. Función central para ejecutar peticiones a la API de Gemini con rotación automática de claves y modelos
  */
 function gemini_ejecutar_peticion($payload, $timeout = 30) {
-    if (empty(GEMINI_API_KEY) || GEMINI_API_KEY === 'TU_GEMINI_API_KEY_AQUI') {
+    $keys = defined('GEMINI_API_KEYS') && is_array(GEMINI_API_KEYS) && count(GEMINI_API_KEYS) > 0 
+        ? GEMINI_API_KEYS 
+        : [GEMINI_API_KEY];
+
+    // Limpiar claves vacías o de placeholder
+    $keys = array_values(array_filter($keys, function($k) {
+        return !empty($k) && $k !== 'TU_GEMINI_API_KEY_AQUI';
+    }));
+
+    if (empty($keys)) {
         return ['exito' => false, 'error' => 'API Key de Gemini no configurada'];
     }
 
@@ -160,65 +169,88 @@ function gemini_ejecutar_peticion($payload, $timeout = 30) {
         'gemini-3.8-flash'
     ]);
 
+    // Ordenar las claves con rotación Round-Robin para balancear la carga equitativamente
+    static $rotIndex = 0;
+    $totalKeys = count($keys);
+    $startIdx = $rotIndex % $totalKeys;
+    $rotIndex++;
+
+    $orderedKeys = [];
+    for ($i = 0; $i < $totalKeys; $i++) {
+        $orderedKeys[] = $keys[($startIdx + $i) % $totalKeys];
+    }
+
     $lastError = '';
 
-    foreach ($models as $model) {
-        $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . GEMINI_API_KEY;
+    foreach ($orderedKeys as $apiKey) {
+        $keySuffix = substr($apiKey, -6);
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $endpoint);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        foreach ($models as $model) {
+            $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . $apiKey;
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $endpoint);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
 
-        if ($curlError) {
-            $lastError = "cURL en {$model}: {$curlError}";
-            bot_log($lastError);
-            continue;
-        }
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
 
-        if ($httpCode !== 200) {
-            $lastError = "HTTP {$httpCode} en {$model}: " . substr((string)$response, 0, 150);
-            bot_log($lastError);
-            continue;
-        }
+            if ($curlError) {
+                $lastError = "cURL en {$model} (...{$keySuffix}): {$curlError}";
+                bot_log($lastError);
+                continue;
+            }
 
-        $resData = json_decode($response, true);
-        $rawText = trim($resData['candidates'][0]['content']['parts'][0]['text'] ?? '');
-        if (empty($rawText)) {
-            $lastError = "Sin texto en respuesta de {$model}";
-            bot_log($lastError);
-            continue;
-        }
+            if ($httpCode === 429) {
+                // Tasa o cuota excedida en esta clave, pasar de inmediato a la siguiente clave del pool
+                $lastError = "HTTP 429 en {$model} con key ...{$keySuffix}. Conmutando a siguiente clave del pool...";
+                bot_log($lastError);
+                break; // Salta de inmediato a la siguiente API Key
+            }
 
-        if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $rawText, $matches)) {
-            $rawText = trim($matches[1]);
-        }
+            if ($httpCode !== 200) {
+                $lastError = "HTTP {$httpCode} en {$model} (...{$keySuffix}): " . substr((string)$response, 0, 150);
+                bot_log($lastError);
+                continue;
+            }
 
-        $decoded = json_decode($rawText, true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-            return [
-                'exito' => true,
-                'modelo' => $model,
-                'data' => $decoded
-            ];
-        } else {
-            $lastError = "JSON inválido de {$model}: " . json_last_error_msg();
-            bot_log($lastError);
+            $resData = json_decode($response, true);
+            $rawText = trim($resData['candidates'][0]['content']['parts'][0]['text'] ?? '');
+            if (empty($rawText)) {
+                $lastError = "Sin texto en respuesta de {$model}";
+                bot_log($lastError);
+                continue;
+            }
+
+            if (preg_match('/^```(?:json)?\s*(.*?)\s*```$/s', $rawText, $matches)) {
+                $rawText = trim($matches[1]);
+            }
+
+            $decoded = json_decode($rawText, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return [
+                    'exito' => true,
+                    'modelo' => $model,
+                    'key_utilizada' => '...' . $keySuffix,
+                    'data' => $decoded
+                ];
+            } else {
+                $lastError = "JSON inválido de {$model}: " . json_last_error_msg();
+                bot_log($lastError);
+            }
         }
     }
 
     return [
         'exito' => false,
-        'error' => $lastError ?: 'No se obtuvo respuesta válida de Gemini'
+        'error' => $lastError ?: 'No se obtuvo respuesta válida de Gemini con ninguna clave'
     ];
 }
 
@@ -606,8 +638,11 @@ function gemini_analizar_seccion_individual($imageBytes, $seccion) {
  * @return array Datos estructurados por sección
  */
 function gemini_analyze_sheet($imageBytes, $mimeType = 'image/jpeg') {
-    if (empty(GEMINI_API_KEY) || GEMINI_API_KEY === 'TU_GEMINI_API_KEY_AQUI') {
-        bot_log("Error: La constante GEMINI_API_KEY no esta configurada.");
+    $hasKeys = (defined('GEMINI_API_KEYS') && is_array(GEMINI_API_KEYS) && count(GEMINI_API_KEYS) > 0)
+        || (!empty(GEMINI_API_KEY) && GEMINI_API_KEY !== 'TU_GEMINI_API_KEY_AQUI');
+
+    if (!$hasKeys) {
+        bot_log("Error: No hay claves API de Gemini configuradas.");
         return ['error' => 'API Key de Gemini no configurada'];
     }
 

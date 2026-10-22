@@ -3,8 +3,13 @@ uploads/*
 !uploads/.gitkeep
 alumnos.json
 bot.log
+calificador.log
+*.log
 *.tmp
 *.zip
+*.bak
+last_detected_cache.json
 ultimo_escaneo.jpg
 .DS_Store
 Thumbs.db
+
