@@ -991,6 +991,12 @@ async function analizarHoja() {
     }
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
 // Construcción de Grids para Revisión
 function construirGridsRevision() {
     const specs = {
