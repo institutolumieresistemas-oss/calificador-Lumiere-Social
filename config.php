@@ -10,6 +10,10 @@ ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
+// Ajustes de límites para procesamiento OMR de imágenes de alta resolución
+@ini_set('memory_limit', '512M');
+@ini_set('max_execution_time', '180');
+
 // 1. Claves de Google Gemini (Pool con rotación automática para multiplicar cuotas gratuitas)
 $geminiPool = [
     base64_decode('QVEuQWI4Uk42SXNIc0V2ejFkVGNOUk1Deld3MndFREZvRTBiMmJQNlZSWEVyRlpyUVBrR2c='), // Cuenta 1 (...QPkGg)

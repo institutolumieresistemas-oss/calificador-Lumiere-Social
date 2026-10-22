@@ -376,8 +376,9 @@ function gemini_ejecutar_peticiones_paralelas($tasks, $timeout = 25) {
     // Reintentar secuencialmente cualquier sección que haya fallado o recibido 429
     if (!empty($retriesNeeded)) {
         bot_log("Reintentando " . count($retriesNeeded) . " tareas con failover de claves...");
+        $retryTimeout = min((int)$timeout, 12);
         foreach ($retriesNeeded as $id => $payload) {
-            $res = gemini_ejecutar_peticion($payload, $timeout);
+            $res = gemini_ejecutar_peticion($payload, $retryTimeout);
             if ($res['exito'] && is_array($res['data'])) {
                 $results[$id] = [
                     'exito' => true,

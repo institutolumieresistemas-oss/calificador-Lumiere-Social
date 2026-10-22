@@ -842,8 +842,65 @@ function limpiarFoto() {
     document.getElementById('btn-analizar').disabled = true;
 }
 
+// Optimiza fotografías pesadas de celulares (reduce de 15MB a <1MB en milisegundos)
+async function optimizarFoto(file) {
+    if (!file) return file;
+    // Si el archivo ya pesa menos de 1 MB y es imagen estándar, enviarlo directamente
+    if (file.size < 1024 * 1024) return file;
+
+    return new Promise((resolve) => {
+        try {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                const maxDim = 2000;
+                let w = img.width;
+                let h = img.height;
+
+                if (w > maxDim || h > maxDim) {
+                    if (w > h) {
+                        h = Math.round((h * maxDim) / w);
+                        w = maxDim;
+                    } else {
+                        w = Math.round((w * maxDim) / h);
+                        h = maxDim;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+
+                canvas.toBlob((blob) => {
+                    if (blob && blob.size < file.size) {
+                        const optimizado = new File([blob], 'examen_foto.jpg', {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+                        console.log(`Foto optimizada: ${(file.size / (1024*1024)).toFixed(1)}MB -> ${(optimizado.size / 1024).toFixed(0)}KB (${w}x${h})`);
+                        resolve(optimizado);
+                    } else {
+                        resolve(file);
+                    }
+                }, 'image/jpeg', 0.85);
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve(file);
+            };
+            img.src = url;
+        } catch(e) {
+            console.warn('Fallback imagen original:', e);
+            resolve(file);
+        }
+    });
+}
+
 // Analizar hoja con IA
-function analizarHoja() {
+async function analizarHoja() {
     if (!archivoSeleccionado) {
         alert('Por favor selecciona o toma una fotografía de tu examen.');
         return;
@@ -853,19 +910,33 @@ function analizarHoja() {
 
     document.getElementById('pantalla-subida').style.display = 'none';
     document.getElementById('pantalla-carga').style.display = 'block';
+    const descLoading = document.getElementById('loading-desc');
+    if (descLoading) descLoading.textContent = 'Optimizando fotografía del examen...';
     iniciarCronometro();
 
-    const formData = new FormData();
-    formData.append('accion', 'analizar_hoja_alumno');
-    formData.append('foto', archivoSeleccionado);
-    formData.append('nombre_previo', nombre);
+    try {
+        const fotoFinal = await optimizarFoto(archivoSeleccionado);
+        if (descLoading) descLoading.textContent = 'Extrayendo nombre y leyendo 125 reactivos en paralelo...';
 
-    fetch('api_calificar.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
+        const formData = new FormData();
+        formData.append('accion', 'analizar_hoja_alumno');
+        formData.append('foto', fotoFinal);
+        formData.append('nombre_previo', nombre);
+
+        const response = await fetch('api_calificar.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const rawText = await response.text();
+        let data;
+        try {
+            data = JSON.parse(rawText);
+        } catch (jsonErr) {
+            console.error('Respuesta no JSON del servidor:', rawText);
+            throw new Error(`El servidor devolvió un error (Código HTTP ${response.status}). Intenta nuevamente.`);
+        }
+
         const seg = detenerCronometro(data.duracion);
         document.getElementById('pantalla-carga').style.display = 'none';
 
@@ -877,7 +948,7 @@ function analizarHoja() {
                 });
                 return;
             }
-            alert('Error: ' + data.error);
+            alert('Aviso: ' + (data.error || 'No se pudieron detectar respuestas') + (data.consejo ? '\n\n💡 ' + data.consejo : ''));
             document.getElementById('pantalla-subida').style.display = 'block';
             return;
         }
@@ -906,13 +977,18 @@ function analizarHoja() {
 
         construirGridsRevision();
         document.getElementById('pantalla-revision').style.display = 'block';
-    })
-    .catch(err => {
+
+    } catch (err) {
         detenerCronometro();
         document.getElementById('pantalla-carga').style.display = 'none';
-        alert('Error de conexión al analizar la hoja. Revisa tu conexión a internet.');
+        console.error('Error al analizar la hoja:', err);
+        let errorMsg = err.message || '';
+        if (!errorMsg || errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+            errorMsg = 'Error de conexión con el servidor. Revisa tu conexión a internet o intenta nuevamente.';
+        }
+        alert(errorMsg);
         document.getElementById('pantalla-subida').style.display = 'block';
-    });
+    }
 }
 
 // Construcción de Grids para Revisión
