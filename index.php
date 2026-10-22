@@ -509,15 +509,25 @@ if (strpos($hostActual, 'resultados.') !== false) {
     </div>
 
     <!-- PANTALLA DE CARGA / PROCESANDO -->
-    <div id="pantalla-carga" class="card loading-view">
+    <div id="pantalla-carga" class="card loading-view" style="display: none; text-align: center; padding: 28px 16px;">
         <div class="spinner"></div>
-        <h2 style="font-size: 18px; color: #fff; margin: 0 0 8px 0;">Analizando Hoja con IA...</h2>
-        <p id="loading-desc" style="color: var(--muted); font-size: 14px; margin: 0;">Leyendo cuadrículas de Lectura, Redacción y Matemáticas...</p>
+        <div style="margin: 16px 0 6px 0;">
+            <span style="font-size: 36px; font-weight: 800; color: #38bdf8; font-variant-numeric: tabular-nums; letter-spacing: -0.5px;">
+                ⏱️ <span id="contador-segundos">0.0</span>s
+            </span>
+        </div>
+        <h2 style="font-size: 18px; color: #fff; margin: 0 0 6px 0;">Analizando Hoja con IA...</h2>
+        <p id="loading-desc" style="color: var(--muted); font-size: 13px; margin: 0;">Extrayendo nombre y leyendo 125 reactivos en paralelo...</p>
     </div>
 
     <!-- PANTALLA 2: REVISIÓN Y CORRECCIÓN ÚNICA -->
     <div id="pantalla-revision" class="card" style="display: none;">
         <div style="text-align: center; margin-bottom: 16px;">
+            <div style="margin-bottom: 8px;">
+                <span id="badge-tiempo-total" style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 13px; font-weight: 700; padding: 5px 14px; border-radius: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                    ⚡ Tiempo de respuesta IA: <b id="tiempo-ia-segundos">0.0</b>s
+                </span>
+            </div>
             <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 12px;">
                 ⚠️ Revisión Única Previa a la Calificación
             </span>
@@ -570,6 +580,11 @@ if (strpos($hostActual, 'resultados.') !== false) {
         </div>
 
         <div class="score-hero">
+            <div style="margin-bottom: 8px;">
+                <span style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                    ⚡ Calificado en <b id="res-duracion">0.0</b>s con Gemini AI
+                </span>
+            </div>
             <div class="score-hero-title">Puntaje Global Estimado</div>
             <div class="score-hero-number" id="res-paa-total">---</div>
             <div class="score-hero-scale">Escala Oficial College Board PAA (400 a 1,600 pts)</div>
@@ -634,6 +649,44 @@ let respuestasDetectadas = null;
 let respuestasOriginales = null;
 let tempIdActual = null;
 let alumnoVerificado = null;
+
+let timerInterval = null;
+let timerStart = 0;
+
+function iniciarCronometro() {
+    timerStart = Date.now();
+    const elem = document.getElementById('contador-segundos');
+    const desc = document.getElementById('loading-desc');
+    if (elem) elem.textContent = '0.0';
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        const segNum = (Date.now() - timerStart) / 1000;
+        const seg = segNum.toFixed(1);
+        if (elem) elem.textContent = seg;
+        if (desc) {
+            if (segNum < 1.2) {
+                desc.textContent = 'Enviando imagen al servidor...';
+            } else if (segNum < 3.2) {
+                desc.textContent = 'Leyendo 125 reactivos y nombre con 5 núcleos IA en paralelo...';
+            } else {
+                desc.textContent = 'Verificando cuadrículas numéricas y armando reporte...';
+            }
+        }
+    }, 100);
+}
+
+function detenerCronometro(duracionServidor) {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    const finalSeg = duracionServidor ? Number(duracionServidor).toFixed(1) : (timerStart ? ((Date.now() - timerStart) / 1000).toFixed(1) : '0.0');
+    const elemBadge = document.getElementById('tiempo-ia-segundos');
+    if (elemBadge) elemBadge.textContent = finalSeg;
+    const elemRes = document.getElementById('res-duracion');
+    if (elemRes) elemRes.textContent = finalSeg;
+    return finalSeg;
+}
 
 // Validar nombre al escribir
 document.getElementById('input-nombre').addEventListener('blur', function() {
@@ -720,6 +773,7 @@ function analizarHoja() {
 
     document.getElementById('pantalla-subida').style.display = 'none';
     document.getElementById('pantalla-carga').style.display = 'block';
+    iniciarCronometro();
 
     const formData = new FormData();
     formData.append('accion', 'analizar_hoja_alumno');
@@ -732,6 +786,7 @@ function analizarHoja() {
     })
     .then(r => r.json())
     .then(data => {
+        const seg = detenerCronometro(data.duracion);
         document.getElementById('pantalla-carga').style.display = 'none';
 
         if (!data.exito) {
@@ -773,6 +828,7 @@ function analizarHoja() {
         document.getElementById('pantalla-revision').style.display = 'block';
     })
     .catch(err => {
+        detenerCronometro();
         document.getElementById('pantalla-carga').style.display = 'none';
         alert('Error de conexión al analizar la hoja. Revisa tu conexión a internet.');
         document.getElementById('pantalla-subida').style.display = 'block';
