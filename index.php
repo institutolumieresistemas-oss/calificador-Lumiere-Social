@@ -248,14 +248,15 @@ if (strpos($hostActual, 'resultados.') !== false) {
         .sec-tab {
             flex: 1;
             padding: 8px 4px;
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 11.5px;
+            font-weight: 700;
             text-align: center;
             border: none;
             background: transparent;
             color: var(--muted);
             border-radius: 8px;
             cursor: pointer;
+            white-space: nowrap;
         }
         .sec-tab.active {
             background: var(--primary);
@@ -628,13 +629,15 @@ if (strpos($hostActual, 'resultados.') !== false) {
         <div class="section-nav">
             <button class="sec-tab active" onclick="cambiarSeccionRevision('lectura')">Lectura (45)</button>
             <button class="sec-tab" onclick="cambiarSeccionRevision('redaccion')">Redacción (25)</button>
-            <button class="sec-tab" onclick="cambiarSeccionRevision('matematicas')">Matemáticas (55)</button>
+            <button class="sec-tab" onclick="cambiarSeccionRevision('matematicas')">Matemáticas 1 (45)</button>
+            <button class="sec-tab" onclick="cambiarSeccionRevision('matematicas2')">Matemáticas 2 (10)</button>
         </div>
 
         <!-- Contenedores de preguntas por sección -->
         <div id="grid-lectura" class="questions-grid"></div>
         <div id="grid-redaccion" class="questions-grid" style="display: none;"></div>
         <div id="grid-matematicas" class="questions-grid" style="display: none;"></div>
+        <div id="grid-matematicas2" class="questions-grid" style="display: none;"></div>
 
         <div id="aviso-modificaciones" style="font-size: 12px; color: #fbbf24; margin-bottom: 16px; text-align: center; display: none;">
             ✏️ Has rectificado <span id="conteo-modificaciones">0</span> respuestas.
@@ -1000,18 +1003,20 @@ function escapeHtml(text) {
 // Construcción de Grids para Revisión
 function construirGridsRevision() {
     const specs = {
-        lectura: { total: 45, cont: document.getElementById('grid-lectura') },
-        redaccion: { total: 25, cont: document.getElementById('grid-redaccion') },
-        matematicas: { total: 55, cont: document.getElementById('grid-matematicas') }
+        lectura: { start: 1, end: 45, cont: document.getElementById('grid-lectura'), isGrid: false, dataSec: 'lectura' },
+        redaccion: { start: 1, end: 25, cont: document.getElementById('grid-redaccion'), isGrid: false, dataSec: 'redaccion' },
+        matematicas: { start: 1, end: 45, cont: document.getElementById('grid-matematicas'), isGrid: false, dataSec: 'matematicas' },
+        matematicas2: { start: 46, end: 55, cont: document.getElementById('grid-matematicas2'), isGrid: true, dataSec: 'matematicas' }
     };
 
-    ['lectura', 'redaccion', 'matematicas'].forEach(sec => {
-        const { total, cont } = specs[sec];
+    ['lectura', 'redaccion', 'matematicas', 'matematicas2'].forEach(secId => {
+        const { start, end, cont, isGrid, dataSec } = specs[secId];
+        if (!cont) return;
         cont.innerHTML = '';
-        const respSec = respuestasDetectadas[sec] || {};
-        const respOrigSec = respuestasOriginales[sec] || {};
+        const respSec = respuestasDetectadas[dataSec] || {};
+        const respOrigSec = respuestasOriginales[dataSec] || {};
 
-        for (let i = 1; i <= total; i++) {
+        for (let i = start; i <= end; i++) {
             const num = String(i);
             const val = respSec[num] || '';
             const valOrig = respOrigSec[num] || '';
@@ -1019,20 +1024,21 @@ function construirGridsRevision() {
 
             const card = document.createElement('div');
             card.className = 'q-card' + (esModificada ? ' modified' : '');
-            card.id = `q-${sec}-${num}`;
+            card.id = `q-${secId}-${num}`;
 
-            if (sec === 'matematicas' && i >= 46) {
+            if (isGrid) {
                 card.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                card.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.7) 100%)';
                 card.innerHTML = `
                     <div class="q-header">
-                        <span style="color:#f59e0b;">#${num} (Grid Numérico)</span>
+                        <span style="color:#f59e0b; font-weight: 700;">#${num} (Respuesta Abierta)</span>
                         ${esModificada ? '<span class="q-tag">Modificada</span>' : ''}
                     </div>
-                    <div style="padding: 4px 0;">
+                    <div style="padding: 6px 0;">
                         <input type="text" value="${escapeHtml(val)}" 
-                            placeholder="ej. 18, 3.5, 1/2" 
-                            style="width: 100%; padding: 8px 10px; font-size: 14px; text-transform: uppercase; font-weight: 700; text-align: center; background: #0f172a; border: 1px solid #334155; color: #fff; border-radius: 8px;"
-                            onchange="modificarRespuestaGrid('${sec}', '${num}', this.value)">
+                            placeholder="ej. 15, 1/2, 3.5, 9" 
+                            style="width: 100%; padding: 8px 10px; font-size: 15px; text-transform: uppercase; font-weight: 800; text-align: center; background: #0f172a; border: 1px solid #f59e0b; color: #fff; border-radius: 8px; letter-spacing: 1px;"
+                            onchange="modificarRespuestaGrid('matematicas2', '${num}', this.value)">
                     </div>
                 `;
             } else {
@@ -1044,10 +1050,10 @@ function construirGridsRevision() {
                     <div class="bubble-options">
                         ${['A', 'B', 'C', 'D'].map(opt => `
                             <button type="button" class="bubble-btn ${val === opt ? 'active' : ''}" 
-                                onclick="seleccionarOpcion('${sec}', '${num}', '${opt}')">${opt}</button>
+                                onclick="seleccionarOpcion('${dataSec}', '${num}', '${opt}')">${opt}</button>
                         `).join('')}
                         <button type="button" class="bubble-btn empty-btn ${val === '' ? 'active' : ''}" 
-                            onclick="seleccionarOpcion('${sec}', '${num}', '')" title="Sin contestar">⚪</button>
+                            onclick="seleccionarOpcion('${dataSec}', '${num}', '')" title="Sin contestar">⚪</button>
                     </div>
                 `;
             }
@@ -1059,20 +1065,21 @@ function construirGridsRevision() {
 }
 
 function modificarRespuestaGrid(sec, num, val) {
-    if (!respuestasDetectadas[sec]) respuestasDetectadas[sec] = {};
+    const secKey = (sec === 'matematicas2') ? 'matematicas' : sec;
+    if (!respuestasDetectadas[secKey]) respuestasDetectadas[secKey] = {};
     const clean = val.trim().toUpperCase();
     if (clean === '') {
-        delete respuestasDetectadas[sec][num];
+        delete respuestasDetectadas[secKey][num];
     } else {
-        respuestasDetectadas[sec][num] = clean;
+        respuestasDetectadas[secKey][num] = clean;
     }
-    const valOrig = (respuestasOriginales[sec] && respuestasOriginales[sec][num]) || '';
+    const valOrig = (respuestasOriginales[secKey] && respuestasOriginales[secKey][num]) || '';
     const esModificada = clean !== valOrig;
-    const card = document.getElementById(`q-${sec}-${num}`);
+    const card = document.getElementById(`q-matematicas2-${num}`) || document.getElementById(`q-matematicas-${num}`) || document.getElementById(`q-${sec}-${num}`);
     if (card) {
         card.className = 'q-card' + (esModificada ? ' modified' : '');
         const tagSpan = card.querySelector('.q-header');
-        tagSpan.innerHTML = `<span style="color:#f59e0b;">#${num} (Grid Numérico)</span>${esModificada ? '<span class="q-tag">Modificada</span>' : ''}`;
+        tagSpan.innerHTML = `<span style="color:#f59e0b; font-weight: 700;">#${num} (Respuesta Abierta)</span>${esModificada ? '<span class="q-tag">Modificada</span>' : ''}`;
     }
     actualizarConteoModificaciones();
 }
@@ -1089,7 +1096,7 @@ function cambiarSeccionRevision(sec) {
     document.querySelectorAll('.sec-tab').forEach(t => t.classList.remove('active'));
     
     // Marcar pestaña activa
-    const btnTab = document.querySelector(`.sec-tab[onclick*="${sec}"]`);
+    const btnTab = document.querySelector(`.sec-tab[onclick*="'${sec}'"]`) || document.querySelector(`.sec-tab[onclick*="${sec}"]`);
     if (btnTab) {
         btnTab.classList.add('active');
     } else if (typeof event !== 'undefined' && event && event.target && event.target.classList) {
@@ -1099,18 +1106,25 @@ function cambiarSeccionRevision(sec) {
     document.getElementById('grid-lectura').style.display = sec === 'lectura' ? 'grid' : 'none';
     document.getElementById('grid-redaccion').style.display = sec === 'redaccion' ? 'grid' : 'none';
     document.getElementById('grid-matematicas').style.display = sec === 'matematicas' ? 'grid' : 'none';
+    const gridMat2 = document.getElementById('grid-matematicas2');
+    if (gridMat2) gridMat2.style.display = sec === 'matematicas2' ? 'grid' : 'none';
 
     // Actualizar indicador de sección en el panel de voz
-    const specs = { lectura: 45, redaccion: 25, matematicas: 55 };
-    const totalSec = specs[sec] || 45;
+    const nombres = {
+        lectura: 'Lectura (1-45)',
+        redaccion: 'Redacción (1-25)',
+        matematicas: 'Matemáticas 1 (1-45)',
+        matematicas2: 'Matemáticas 2 (46-55)'
+    };
+    const totales = { lectura: 45, redaccion: 25, matematicas: 45, matematicas2: 10 };
     const elemSec = document.getElementById('voz-seccion-nombre');
     const elemTot = document.getElementById('voz-reactivo-total');
-    if (elemSec) elemSec.textContent = sec;
-    if (elemTot) elemTot.textContent = totalSec;
+    if (elemSec) elemSec.textContent = nombres[sec] || sec;
+    if (elemTot) elemTot.textContent = totales[sec] || 45;
 
     // Resetear contador visual de reactivo dictado para la nueva sección
     const elemAct = document.getElementById('voz-reactivo-actual');
-    if (elemAct) elemAct.textContent = '1';
+    if (elemAct) elemAct.textContent = (sec === 'matematicas2') ? '46' : '1';
 }
 
 function toggleDictadoVoz() {
@@ -1152,7 +1166,7 @@ function iniciarDictadoVoz() {
         if (iconMic) iconMic.textContent = '⏹️';
         if (txtVoz) txtVoz.textContent = 'Detener Dictado';
         if (panelEstado) panelEstado.style.display = 'block';
-        if (transVivo) transVivo.textContent = '🎤 Escuchando micrófono... Di: "A B D C C D..."';
+        if (transVivo) transVivo.textContent = '🎤 Escuchando micrófono...';
 
         reconocimientoVoz.onresult = function(event) {
             let textoCompleto = '';
@@ -1163,37 +1177,46 @@ function iniciarDictadoVoz() {
             const letras = parsearDictadoALetras(textoCompleto);
             if (letras.length === 0) return;
 
-            // Rellenar en vivo cada casilla en la sección activa
-            const specs = { lectura: 45, redaccion: 25, matematicas: 55 };
-            const totalSec = specs[seccionActiva] || 45;
+            if (seccionActiva === 'matematicas2') {
+                letras.forEach((val, idx) => {
+                    const num = 46 + idx;
+                    if (num <= 55) {
+                        modificarRespuestaGrid('matematicas2', String(num), val);
+                        const inp = document.querySelector(`#q-matematicas2-${num} input`);
+                        if (inp) inp.value = val;
+                    }
+                });
 
-            letras.forEach((letra, idx) => {
-                const num = idx + 1;
-                if (num <= totalSec) {
-                    if (seccionActiva === 'matematicas' && num >= 46) {
-                        modificarRespuestaGrid(seccionActiva, String(num), letra);
-                        const inp = document.querySelector(`#q-${seccionActiva}-${num} input`);
-                        if (inp) inp.value = letra;
-                    } else {
+                const ultimasLetras = letras.slice(-5).join(' ');
+                if (transVivo) transVivo.textContent = ultimasLetras || 'Escuchando...';
+
+                const reactivoSiguiente = Math.min(46 + letras.length, 55);
+                const elemAct = document.getElementById('voz-reactivo-actual');
+                if (elemAct) elemAct.textContent = reactivoSiguiente;
+
+                const targetNum = Math.min(46 + (letras.length ? (letras.length - 1) : 0), 55);
+                const cardAct = document.getElementById(`q-matematicas2-${targetNum}`);
+                if (cardAct) cardAct.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                const specs = { lectura: 45, redaccion: 25, matematicas: 45 };
+                const totalSec = specs[seccionActiva] || 45;
+
+                letras.forEach((letra, idx) => {
+                    const num = idx + 1;
+                    if (num <= totalSec) {
                         seleccionarOpcion(seccionActiva, String(num), letra);
                     }
-                }
-            });
+                });
 
-            // Actualizar transcripción y reactivo actual
-            const ultimasLetras = letras.slice(-10).join(' ');
-            if (transVivo) {
-                transVivo.textContent = ultimasLetras || 'Escuchando...';
-            }
+                const ultimasLetras = letras.slice(-10).join(' ');
+                if (transVivo) transVivo.textContent = ultimasLetras || 'Escuchando...';
 
-            const reactivoSiguiente = Math.min(letras.length + 1, totalSec);
-            const elemAct = document.getElementById('voz-reactivo-actual');
-            if (elemAct) elemAct.textContent = reactivoSiguiente;
+                const reactivoSiguiente = Math.min(letras.length + 1, totalSec);
+                const elemAct = document.getElementById('voz-reactivo-actual');
+                if (elemAct) elemAct.textContent = reactivoSiguiente;
 
-            // Auto-scroll a la casilla actual para verla rellenarse en vivo
-            const cardAct = document.getElementById(`q-${seccionActiva}-${letras.length || 1}`);
-            if (cardAct) {
-                cardAct.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                const cardAct = document.getElementById(`q-${seccionActiva}-${letras.length || 1}`);
+                if (cardAct) cardAct.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         };
 
@@ -1271,16 +1294,29 @@ function parsearDictadoALetras(texto) {
 }
 
 function limpiarSeccionActiva() {
-    if (!confirm(`¿Deseas borrar todas las respuestas marcadas en "${seccionActiva.toUpperCase()}"?`)) {
+    const titulo = (seccionActiva === 'matematicas2') ? 'MATEMÁTICAS 2 (46 a 55)' : ((seccionActiva === 'matematicas') ? 'MATEMÁTICAS 1 (1 a 45)' : seccionActiva.toUpperCase());
+    if (!confirm(`¿Deseas borrar todas las respuestas marcadas en "${titulo}"?`)) {
         return;
     }
-    const specs = { lectura: 45, redaccion: 25, matematicas: 55 };
-    const total = specs[seccionActiva] || 45;
-    for (let i = 1; i <= total; i++) {
-        seleccionarOpcion(seccionActiva, String(i), '');
+    if (seccionActiva === 'matematicas2') {
+        for (let i = 46; i <= 55; i++) {
+            modificarRespuestaGrid('matematicas2', String(i), '');
+            const inp = document.querySelector(`#q-matematicas2-${i} input`);
+            if (inp) inp.value = '';
+        }
+    } else if (seccionActiva === 'matematicas') {
+        for (let i = 1; i <= 45; i++) {
+            seleccionarOpcion('matematicas', String(i), '');
+        }
+    } else {
+        const specs = { lectura: 45, redaccion: 25 };
+        const total = specs[seccionActiva] || 45;
+        for (let i = 1; i <= total; i++) {
+            seleccionarOpcion(seccionActiva, String(i), '');
+        }
     }
     const elemAct = document.getElementById('voz-reactivo-actual');
-    if (elemAct) elemAct.textContent = '1';
+    if (elemAct) elemAct.textContent = (seccionActiva === 'matematicas2') ? '46' : '1';
     const trans = document.getElementById('transcripcion-en-vivo');
     if (trans) trans.textContent = 'Respuestas limpiadas. Listo para dictar.';
 }
@@ -1459,6 +1495,61 @@ function mostrarResultadosOficiales(ev) {
     ['lectura', 'redaccion', 'matematicas'].forEach(k => {
         const s = ev.secciones[k];
         if (!s) return;
+
+        if (k === 'matematicas' && s.detalles) {
+            let ac1 = 0, err1 = 0, om1 = 0, tot1 = 0;
+            let ac2 = 0, err2 = 0, om2 = 0, tot2 = 0;
+            for (let i = 1; i <= 45; i++) {
+                const d = s.detalles[String(i)];
+                if (d) {
+                    tot1++;
+                    if (d.es_acierto) ac1++;
+                    else if (d.marcada === 'OMITIDA' || !d.marcada) om1++;
+                    else err1++;
+                }
+            }
+            for (let i = 46; i <= 55; i++) {
+                const d = s.detalles[String(i)];
+                if (d) {
+                    tot2++;
+                    if (d.es_acierto) ac2++;
+                    else if (d.marcada === 'OMITIDA' || !d.marcada) om2++;
+                    else err2++;
+                }
+            }
+
+            const p1 = tot1 > 0 ? Math.round((ac1 / tot1) * 100) : 0;
+            const p2 = tot2 > 0 ? Math.round((ac2 / tot2) * 100) : 0;
+
+            // Matemáticas 1
+            const box1 = document.createElement('div');
+            box1.style.cssText = 'background: #1a243b; border-radius: 10px; padding: 14px; margin-bottom: 12px; border: 1px solid #263352;';
+            box1.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <b style="color: #fff; font-size: 15px;">📐 Matemáticas 1 (Opción Múltiple 1-45)</b>
+                    <span style="font-weight: 800; color: #34d399; font-size: 15px;">${ac1} / ${tot1 || 45} aciertos (${p1}%)</span>
+                </div>
+                <div style="font-size: 12px; color: #94a3b8;">
+                    Errores: ${err1} | Omitidas: ${om1}
+                </div>
+            `;
+            contSec.appendChild(box1);
+
+            // Matemáticas 2
+            const box2 = document.createElement('div');
+            box2.style.cssText = 'background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, #1a243b 100%); border-radius: 10px; padding: 14px; margin-bottom: 12px; border: 1px solid rgba(245, 158, 11, 0.35);';
+            box2.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <b style="color: #fbbf24; font-size: 15px;">✏️ Matemáticas 2 (Respuestas Abiertas 46-55)</b>
+                    <span style="font-weight: 800; color: #fbbf24; font-size: 15px;">${ac2} / ${tot2 || 10} aciertos (${p2}%)</span>
+                </div>
+                <div style="font-size: 12px; color: #94a3b8;">
+                    Errores: ${err2} | Omitidas: ${om2}
+                </div>
+            `;
+            contSec.appendChild(box2);
+            return;
+        }
 
         const secBox = document.createElement('div');
         secBox.style.cssText = 'background: #1a243b; border-radius: 10px; padding: 14px; margin-bottom: 12px; border: 1px solid #263352;';
