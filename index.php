@@ -535,6 +535,10 @@ if (strpos($hostActual, 'resultados.') !== false) {
                 🎙️ O capturar / dictar respuestas en otra pestaña (sin foto) ↗
             </a>
         </div>
+
+        <div style="margin-top: 12px; text-align: center; font-size: 12px; color: var(--muted); padding-top: 10px; border-top: 1px solid var(--border);">
+            ¿Eres profesor? <a href="captura_base.php" target="_blank" style="color: #fbbf24; text-decoration: none; font-weight: 700;">🎯 Cargar / Dictar Hoja Base Oficial ↗</a>
+        </div>
     </div>
 
     <!-- PANTALLA DE BLOQUEO POR INTENTO PREVIO -->

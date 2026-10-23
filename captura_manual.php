@@ -434,7 +434,10 @@ $origen = trim($_GET['origen'] ?? '');
             <span>INSTITUTO LUMIÈRE</span> • <span>MODO MANUAL</span>
         </div>
         <h1>✍️ Captura Manual y Dictado</h1>
-        <p>Carga de respuestas oficiales PAA sin escaneo de imagen. Compatible con dictado por voz y captura táctil.</p>
+        <p>Carga de respuestas de examen de alumno sin escaneo de imagen. Compatible con dictado por voz y captura táctil.</p>
+        <div style="margin-top: 8px; font-size: 12px; color: var(--muted);">
+            ¿Deseas configurar las respuestas correctas oficiales? <a href="captura_base.php" target="_blank" style="color: #fbbf24; text-decoration: none; font-weight: 700;">🎯 Ir a Cargar Hoja Base ↗</a>
+        </div>
     </div>
 
     <!-- PANTALLA PRINCIPAL DE CAPTURA -->

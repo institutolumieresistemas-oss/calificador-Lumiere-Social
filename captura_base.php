@@ -868,6 +868,7 @@ async function guardarHojaBaseOficial() {
     try {
         const formData = new FormData();
         formData.append('accion', 'admin_guardar_hoja_base');
+        formData.append('admin_token', '<?php echo ADMIN_PASSWORD; ?>');
         formData.append('hoja_base', JSON.stringify(hojaBase));
 
         const res = await fetch('api_calificar.php', { method: 'POST', body: formData });
