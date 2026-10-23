@@ -1,6 +1,8 @@
 # Archivos y carpetas de datos dinámicos (para no sobreescribir datos de alumnos en los deploys)
 uploads/*
 !uploads/.gitkeep
+mesas/*
+!mesas/.gitkeep
 alumnos.json
 bot.log
 calificador.log
