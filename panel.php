@@ -845,6 +845,9 @@ $isLogged = isset($_SESSION['admin_token']) && ($_SESSION['admin_token'] === ADM
                     <button class="filter-btn" data-filter="solicitudes" onclick="setFiltro('solicitudes', this)">⚠️ Solicitudes (<span id="countFiltroSolicitudes">0</span>)</button>
                     <button class="filter-btn" data-filter="aprobados" onclick="setFiltro('aprobados', this)">🟢 ≥ 1000 pts (<span id="countFiltroAprobados">0</span>)</button>
                     <button class="filter-btn" data-filter="modificados" onclick="setFiltro('modificados', this)">✏️ Corregidos Alumno</button>
+                    <a href="captura_manual.php?origen=docente" target="_blank" class="btn btn-primary btn-sm" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; padding: 6px 12px; margin-left: 6px; font-size: 13px;">
+                        <span>✍️ Captura Manual / Voz ↗</span>
+                    </a>
                 </div>
             </div>
 
@@ -903,6 +906,12 @@ $isLogged = isset($_SESSION['admin_token']) && ($_SESSION['admin_token'] === ADM
                         </button>
                     </div>
 
+                    <div style="margin-top: 16px; text-align: center;">
+                        <a href="captura_base.php" target="_blank" class="btn btn-outline" style="text-decoration: none; font-size: 13px; padding: 10px 18px; border: 1px dashed var(--border); color: #38bdf8; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                            🎙️ O capturar / dictar Hoja Base en otra pestaña (sin foto) ↗
+                        </a>
+                    </div>
+
                     <input type="file" id="fileHojaBaseCamara" accept="image/*" capture="environment" style="display:none;" onchange="escanearHojaBaseConIA(this)">
                     <input type="file" id="fileHojaBase" accept="image/*" style="display:none;" onchange="escanearHojaBaseConIA(this)">
                 </div>
@@ -919,9 +928,14 @@ $isLogged = isset($_SESSION['admin_token']) && ($_SESSION['admin_token'] === ADM
                             Haz clic en las burbujas para alternar la clave correcta de cada pregunta.
                         </div>
                     </div>
-                    <button class="btn btn-primary" onclick="guardarHojaBaseVisual()" id="btnGuardarBase">
-                        <span>💾 Guardar Hoja Base Oficial</span>
-                    </button>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <a href="captura_base.php" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                            🎙️ Dictado en Nueva Pestaña ↗
+                        </a>
+                        <button class="btn btn-primary" onclick="guardarHojaBaseVisual()" id="btnGuardarBase">
+                            <span>💾 Guardar Hoja Base Oficial</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Sub-pestañas por sección -->

@@ -9,6 +9,8 @@ Sistema web en PHP para la calificación y auditoría automática de hojas de re
 | Archivo / Carpeta | Descripción |
 |---|---|
 | `index.php` | **Portal del Alumno / Router principal**: Interfaz web móvil donde los estudiantes toman o suben foto de su hoja y reciben su puntaje. Rutea a `panel.php` si se accede por el subdominio de resultados. |
+| `captura_manual.php` | **Captura Manual y Dictado por Voz (Alumnos)**: Permite ingresar y calificar exámenes en pestaña dedicada sin requerir escaneo de fotos, pidiendo nombre y cargando los módulos oficiales PAA. |
+| `captura_base.php` | **Captura y Dictado de Hoja Base (Docentes)**: Editor visual interactivo con dictado por voz para configurar las respuestas oficiales PAA sin escaneo de fotografías. |
 | `panel.php` | **Panel Docente y Administrativo**: Estadísticas grupales, auditoría de hojas, reactivos más fallados, escaneo de Hoja Base y exportación a Excel. |
 | `panel_claves.php` | **Editor rápido de claves**: Panel web para consulta o edición manual de la Hoja Base Oficial. |
 | `api_calificar.php` | **API REST / Backend**: Procesa las solicitudes AJAX de calificación, auditoría, subida de imágenes y registro de alumnos. |

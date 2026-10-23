@@ -229,8 +229,9 @@ if ($accion === 'confirmar_examen_alumno') {
     $alumnos = cargar_alumnos();
     $alumno = $alumnos[$norm] ?? null;
 
-    // Verificar candado de intentos
-    if ($alumno && ($alumno['bloqueado'] ?? true) && !($alumno['permiso_reintento'] ?? false)) {
+    // Verificar candado de intentos (los administradores docentes autenticados pueden registrar sin bloqueo)
+    $esAdmin = (!empty($_SESSION['admin_token']) && $_SESSION['admin_token'] === ADMIN_PASSWORD);
+    if (!$esAdmin && $alumno && ($alumno['bloqueado'] ?? true) && !($alumno['permiso_reintento'] ?? false)) {
         responder_json([
             'exito' => false,
             'error' => 'Ya has entregado tu examen con anterioridad. Solicita autorización a tu profesor para volver a subirlo.'

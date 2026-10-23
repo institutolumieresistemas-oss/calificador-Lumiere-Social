@@ -531,9 +531,9 @@ if (strpos($hostActual, 'resultados.') !== false) {
         </div>
 
         <div style="margin-top: 12px; text-align: center;">
-            <button type="button" class="btn btn-outline" style="font-size: 13px; padding: 10px 16px; width: 100%; border: 1px dashed var(--border); color: #38bdf8;" onclick="iniciarRevisionManualVoz()">
-                🎙️ O dictar respuestas por voz directamente (sin foto)
-            </button>
+            <a href="captura_manual.php" target="_blank" class="btn btn-outline" style="text-decoration: none; font-size: 13px; padding: 11px 16px; width: 100%; border: 1px dashed var(--border); color: #38bdf8; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                🎙️ O capturar / dictar respuestas en otra pestaña (sin foto) ↗
+            </a>
         </div>
     </div>
 
@@ -1322,28 +1322,7 @@ function limpiarSeccionActiva() {
 }
 
 function iniciarRevisionManualVoz() {
-    archivoSeleccionado = null;
-    respuestasDetectadas = { lectura: {}, redaccion: {}, matematicas: {} };
-    respuestasOriginales = { lectura: {}, redaccion: {}, matematicas: {} };
-    tempIdActual = 'manual_' + Date.now();
-
-    const nombre = document.getElementById('input-nombre').value.trim();
-    document.getElementById('revision-nombre').value = nombre;
-
-    construirGridsRevision();
-
-    document.getElementById('pantalla-subida').style.display = 'none';
-    document.getElementById('pantalla-carga').style.display = 'none';
-    document.getElementById('pantalla-resultados').style.display = 'none';
-    document.getElementById('pantalla-bloqueo').style.display = 'none';
-    document.getElementById('pantalla-revision').style.display = 'block';
-
-    cambiarSeccionRevision('lectura');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-
-    setTimeout(() => {
-        iniciarDictadoVoz();
-    }, 400);
+    window.open('captura_manual.php', '_blank');
 }
 
 function seleccionarOpcion(sec, num, opt) {
